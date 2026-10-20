@@ -92,7 +92,7 @@ a{color:var(--gold)}
 .accent::after{content:'';position:absolute;bottom:-2px;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);animation:glowPulse 3s ease-in-out infinite}
 .hero-sub{color:var(--text-dim);max-width:640px;margin:0 auto;font-size:1.05rem}
 
-.content{padding:20px 0 64px;min-height:60vh}
+.content{padding-top:20px;padding-bottom:64px;min-height:60vh}
 .section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:16px;flex-wrap:wrap}
 .section-head h2{font-family:var(--font-display);font-size:1.5rem;font-weight:700;letter-spacing:-.4px;margin:0}
 .filter-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px;align-items:center}
@@ -135,7 +135,7 @@ a{color:var(--gold)}
 .load-more:disabled{opacity:.5;cursor:not-allowed;transform:none}
 .spinner{display:inline-block;width:18px;height:18px;border:2.5px solid rgba(255,255,255,.12);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle}
 
-.detail-view{padding:28px 0 64px;min-height:70vh;animation:pageIn .4s cubic-bezier(.2,.7,.3,1) both}
+.detail-view{padding-top:28px;padding-bottom:64px;min-height:70vh;animation:pageIn .4s cubic-bezier(.2,.7,.3,1) both}
 .detail-back{display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:999px;border:1px solid var(--glass-border);background:var(--glass-bg-soft);color:var(--text-dim);cursor:pointer;font-size:.88rem;font-weight:700;font-family:inherit;transition:all .25s cubic-bezier(.2,.7,.3,1);margin-bottom:22px;position:relative;overflow:hidden}
 .detail-back:hover{border-color:var(--gold);color:var(--gold);transform:translateX(-4px)}
 .detail-back .arrow{display:inline-block;transition:transform .25s}
@@ -322,7 +322,11 @@ a{color:var(--gold)}
 <header class="site-header">
 <div class="wrap header-inner">
 <a href="#" class="brand" id="brandHome" aria-label="IMROVICH Mods">
-<svg class="brand-mark" width="28" height="28" viewBox="0 0 32 32"><rect x="3" y="3" width="26" height="26" rx="7" fill="url(#bm)"/><path d="M10 12h12M10 16h12M10 20h8" stroke="#1a1206" stroke-width="2.2" stroke-linecap="round"/><defs><linearGradient id="bm" x1="3" y1="3" x2="29" y2="29"><stop stop-color="#E0A800"/><stop offset="1" stop-color="#FFD24A"/></linearGradient></defs></svg>
+<svg class="brand-mark" width="28" height="28" viewBox="0 0 32 32">
+<defs><linearGradient id="bm" x1="3" y1="3" x2="29" y2="29"><stop stop-color="#E0A800"/><stop offset="1" stop-color="#FFD24A"/></linearGradient></defs>
+<rect x="3" y="3" width="26" height="26" rx="7" fill="url(#bm)"/>
+<path d="M10 12h12M10 16h12M10 20h8" stroke="#1a1206" stroke-width="2.2" stroke-linecap="round"/>
+</svg>
 <span class="brand-text"><span class="brand-name">IMROVICH</span><span class="brand-suffix">Mods</span></span>
 </a>
 <nav class="top-nav" id="navLinks">
@@ -418,7 +422,7 @@ a{color:var(--gold)}
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
 const API_BASE='https://api.modrinth.com/v2';
-const UA={'User-Agent':'IMROVICH-Mods/1.0.0 (live API client; https://imrovich.github.io/mods/)','Accept':'application/json'};
+const UA={'Accept':'application/json'};
 const SITE_NAME='IMROVICH Mods';
 const CACHE_PREFIX='imr_mr_cache_';
 const THEME_KEY='imr_mr_theme';
@@ -533,6 +537,8 @@ const state={
   detail:{slug:null,project:null,versions:[],members:[],deps:[],versionFilter:{loader:'',version:''}}
 };
 
+let loadSeq=0;
+
 const $grid=document.getElementById('grid');
 const $loadMore=document.getElementById('loadMore');
 const $tabs=document.getElementById('tabs');
@@ -612,19 +618,31 @@ function updateStats(){
 }
 
 async function loadProjects({append=false}={}){
-  if(state.loading)return;
-  state.loading=true;$loadMore.disabled=true;
-  if(!append){state.offset=0;state.projects=[];$grid.innerHTML=`<div class="empty"><span class="spinner"></span></div>`;}
+  if(state.loading && append)return;
+  const mySeq=++loadSeq;
+  state.loading=true;
+  $loadMore.disabled=true;
+  if(!append){
+    state.offset=0;state.projects=[];
+    $grid.innerHTML=`<div class="empty"><span class="spinner"></span></div>`;
+  }
   try{
     const data=await searchProjects({query:state.query,projectType:state.projectType,category:state.category,loader:state.loader,version:state.version,sort:state.sort,limit:state.limit,offset:state.offset});
+    if(mySeq!==loadSeq)return;
     state.totalHits=data.total_hits||0;
     state.projects=append?state.projects.concat(data.hits||[]):(data.hits||[]);
     renderProjects(append);updateStats();
   }catch(err){
+    if(mySeq!==loadSeq)return;
     console.error(err);
     $grid.innerHTML=`<div class="empty">⚠️ Не удалось загрузить: ${esc(err.message)}</div>`;
     $loadMore.style.display='none';
-  }finally{state.loading=false;$loadMore.disabled=false;}
+  }finally{
+    if(mySeq===loadSeq){
+      state.loading=false;
+      $loadMore.disabled=false;
+    }
+  }
 }
 
 async function initTags(){
